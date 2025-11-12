@@ -1,19 +1,5 @@
-function createTodo(title) {
-    return {
-        id: crypto.randomUUID(),
-        title: title.trim(),
-        completed: false,
-        createdAt: Date.now()
-    };
-}
+const API_URL = "https://69149e653746c71fe0490048.mockapi.io/api/v1/todo";
 
-// Состояние приложения
-const STORAGE_KEY = 'todo.items.v1';
-let state = [];
-let filter = 'all';
-let query = '';
-
-// DOM элементы
 const $list = document.getElementById('list');
 const $new = document.getElementById('newTodo');
 const $add = document.getElementById('addBtn');
@@ -22,161 +8,166 @@ const $search = document.getElementById('search');
 const $left = document.getElementById('leftCount');
 const $clear = document.getElementById('clearCompleted');
 
-// --- ✅ Функция сохранения и загрузки ---
-function save() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+let state = [];
+let filter = 'all';
+let query = '';
+
+async function loadTodos() {
+  const res = await fetch(API_URL);
+  state = await res.json();
+  render();
 }
 
-function load() {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-        try {
-            state = JSON.parse(saved);
-        } catch {
-            state = [];
-        }
-    } else {
-        state = [];
-    }
+async function addTodo() {
+  const title = $new.value.trim();
+  if (!title) return;
+
+  const res = await fetch(API_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ title, completed: false })
+  });
+  const newTodo = await res.json();
+  state.unshift(newTodo);
+  render();
+  $new.value = "";
 }
 
-// --- Отрисовка ---
-function render() {
-    const filtered = state.filter(t => {
-        const byFilter = filter === 'all' ||
-            (filter === 'active' && !t.completed) ||
-            (filter === 'completed' && t.completed);
-        const byQuery = t.title.toLowerCase().includes(query);
-        return byFilter && byQuery;
-    });
-
-    $list.innerHTML = '';
-    for (let i = 0; i < filtered.length; i++) {
-        const t = filtered[i];
-        const li = document.createElement('li');
-        li.className = 'item' + (t.completed ? ' completed' : '');
-        li.dataset.id = t.id;
-        li.style.animationDelay = `${i * 0.05}s`;
-
-        const cb = document.createElement('input');
-        cb.type = 'checkbox';
-        cb.className = 'checkbox';
-        cb.checked = t.completed;
-        cb.addEventListener('change', () => toggle(t.id));
-
-        const title = document.createElement('div');
-        title.className = 'title';
-        title.textContent = t.title;
-        title.tabIndex = 0;
-        title.addEventListener('dblclick', () => startEdit(t.id, title));
-
-        const del = document.createElement('button');
-        del.className = 'del';
-        del.textContent = '✕';
-        del.setAttribute('aria-label', 'Удалить');
-        del.addEventListener('click', () => remove(t.id));
-
-        li.append(cb, title, del);
-        $list.append(li);
-    }
-
-    $left.textContent = state.filter(t => !t.completed).length;
+async function toggleTodo(id, completed) {
+  await fetch(`${API_URL}/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ completed })
+  });
+  const item = state.find(t => t.id == id);
+  item.completed = completed;
+  render();
 }
 
-// --- Добавление ---
-function add() {
-    const v = $new.value.trim();
-    if (!v) {
-        alert('Пожалуйста, заполните поле!');
-        return;
-    }
-    state.unshift(createTodo(v));
-    save();
-    render();
-    $new.value = '';
-    updateAddButton();
+async function deleteTodo(id) {
+  await fetch(`${API_URL}/${id}`, { method: "DELETE" });
+  state = state.filter(t => t.id != id);
+  render();
 }
 
-function updateAddButton() {
-    const isEmpty = !$new.value.trim();
-    $add.disabled = isEmpty;
-    $add.style.opacity = isEmpty ? '0.5' : '1';
-    $add.style.cursor = isEmpty ? 'not-allowed' : 'pointer';
-}
-
-$new.addEventListener('input', updateAddButton);
-
-// --- Обработчики событий ---
-$new.addEventListener('keydown', e => {
-    if (e.key === 'Enter') add();
-});
-
-$add.addEventListener('click', add);
-
-// --- Переключение статуса ---
-function toggle(id) {
-    state = state.map(t => t.id === id ? { ...t, completed: !t.completed } : t);
-    save();
+async function clearCompleted() {
+  const completed = state.filter(t => t.completed);
+  for (const todo of completed) {
+    await fetch(`${API_URL}/${todo.id}`, { method: "DELETE" });
+  }
+  state = state.filter(t => !t.completed);
     render();
 }
 
-// --- Удаление ---
-function remove(id) {
-    state = state.filter(t => t.id !== id);
-    save();
+async function updateTitle(id, title) {
+  const item = state.find(t => t.id == id);
+  if (!item) return;
+
+  const res = await fetch(`${API_URL}/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ...item, title })
+  });
+
+  if (res.ok) {
+    const updated = await res.json();
+    Object.assign(item, updated);
     render();
+  } else {
+    render();
+  }
 }
 
-// --- Редактирование ---
-function startEdit(id, node) {
-    const old = node.textContent;
-    const input = document.createElement('input');
-    input.className = 'title-edit';
-    input.value = old;
+function startEdit(todo, node) {
+  const original = todo.title;
+  const input = document.createElement("input");
+  input.type = "text";
+  input.className = "title-edit";
+  input.value = original;
     node.replaceWith(input);
     input.focus();
     input.select();
 
-    const finish = () => {
-        const val = input.value.trim();
-        state = state.map(t => t.id === id ? { ...t, title: val || old } : t);
-        save();
+  let finished = false;
+
+  const cleanup = () => {
+    finished = true;
+    input.removeEventListener("keydown", onKeydown);
+    input.removeEventListener("blur", onBlur);
+  };
+
+  const commit = async () => {
+    if (finished) return;
+    cleanup();
+    const value = input.value.trim();
+    if (!value) {
+      render();
+      return;
+    }
+    if (value === original) {
+      render();
+      return;
+    }
+    await updateTitle(todo.id, value);
+  };
+
+  const cancel = () => {
+    cleanup();
         render();
     };
 
-    input.addEventListener('keydown', e => {
-        if (e.key === 'Enter') finish();
-        if (e.key === 'Escape') render();
-    });
-    input.addEventListener('blur', finish);
+  const onKeydown = e => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      commit();
+    }
+    if (e.key === "Escape") {
+      cancel();
+    }
+  };
+
+  const onBlur = () => {
+    commit();
+  };
+
+  input.addEventListener("keydown", onKeydown);
+  input.addEventListener("blur", onBlur);
 }
 
-// --- Обработчики событий ---
-$new.addEventListener('keydown', e => {
-    if (e.key === 'Enter') add();
-});
+function render() {
+  let filtered = state;
+  if (filter === 'active') filtered = filtered.filter(t => !t.completed);
+  if (filter === 'completed') filtered = filtered.filter(t => t.completed);
+  if (query) filtered = filtered.filter(t => t.title.toLowerCase().includes(query));
 
-$add.addEventListener('click', add);
+  $list.innerHTML = "";
+  filtered.forEach(t => {
+    const li = document.createElement('li');
+    li.className = "item" + (t.completed ? " completed" : "");
+    li.dataset.id = t.id;
+    li.innerHTML = `
+      <input type="checkbox" class="checkbox" ${t.completed ? "checked" : ""}>
+      <div class="title" contenteditable="false">${t.title}</div>
+      <button class="del">✕</button>
+    `;
+    li.querySelector(".checkbox").addEventListener("change", e => toggleTodo(t.id, e.target.checked));
+    li.querySelector(".del").addEventListener("click", () => deleteTodo(t.id));
+    li.querySelector(".title").addEventListener("dblclick", () => startEdit(t, li.querySelector(".title")));
+    $list.append(li);
+  });
 
-$filters.forEach(btn => btn.addEventListener('click', () => {
-    document.querySelector('.filter.active')?.classList.remove('active');
-    btn.classList.add('active');
+  $left.textContent = state.filter(t => !t.completed).length;
+}
+
+$add.addEventListener("click", addTodo);
+$new.addEventListener("keydown", e => { if (e.key === "Enter") addTodo(); });
+$filters.forEach(btn => btn.addEventListener("click", () => {
+  document.querySelector(".filter.active")?.classList.remove("active");
+  btn.classList.add("active");
     filter = btn.dataset.filter;
     render();
 }));
+$search.addEventListener("input", e => { query = e.target.value.trim().toLowerCase(); render(); });
+$clear.addEventListener("click", clearCompleted);
 
-$search.addEventListener('input', e => {
-    query = e.target.value.trim().toLowerCase();
-    render();
-});
-
-$clear.addEventListener('click', () => {
-    state = state.filter(t => !t.completed);
-    save();
-    render();
-});
-
-// --- Инициализация ---
-load();
-render();
-updateAddButton();
+loadTodos();
