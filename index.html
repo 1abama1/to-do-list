@@ -1,32 +1,39 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
     <meta charset="UTF-8">
     <title>TODO-LIST</title>
     <link rel="stylesheet" href="src/styles/style.css">
-    <link rel="icon" href="src/sketch-3-todo-list-app-icon-template.jpg" type="image/x-icon">
 </head>
 <body>
-    <main class="container">
-        <h1>Список дел</h1>
-        <div class="add">
-            <input id="newTodo" type="text" placeholder="Что нужно сделать?" maxlength="150" />
-            <button id="addBtn" aria-label="Добавить">＋</button>
+
+<main class="container">
+    <button id="logoutBtn" class="logout">Выйти</button>
+
+    <h1>Список дел</h1>
+
+    <div class="add">
+        <input id="newTodo" type="text" placeholder="Что нужно сделать?" maxlength="150" />
+        <button id="addBtn">＋</button>
+    </div>
+
+    <div class="toolbar">
+        <div class="filters">
+            <button class="filter active" data-filter="all">Все</button>
+            <button class="filter" data-filter="active">Активные</button>
+            <button class="filter" data-filter="completed">Выполненные</button>
         </div>
-        <div class="toolbar">
-            <div class="filters" role="tablist">
-                <button class="filter active" data-filter="all">Все</button>
-                <button class="filter" data-filter="active">Активные</button>
-                <button class="filter" data-filter="completed">Выполненные</button>
-            </div>
-            <input id="search" type="search" placeholder="Поиск..." />
-        </div>
-        <ul id="list" class="list" aria-live="polite"></ul>
-        <footer class="footer">
-            <span><span id="leftCount">0</span> осталось</span>
-            <button id="clearCompleted" class="link">Очистить выполненные</button>
-        </footer>
-    </main>
+        <input id="search" type="search" placeholder="Поиск..." />
+    </div>
+
+    <ul id="list" class="list"></ul>
+
+    <footer class="footer">
+        <span><span id="leftCount">0</span> осталось</span>
+        <button id="clearCompleted" class="link">Очистить выполненные</button>
+    </footer>
+</main>
+
 <script src="src/js/main.js"></script>
 </body>
 </html>
