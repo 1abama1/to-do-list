@@ -1,3 +1,5 @@
+https://www.figma.com/design/kXx6rcj0fukNMhdIjITnhA/web_shahil_o-nil?node-id=0-1&t=S7waSqTwYbaCA6ng-1
+
 # TODO List - Список дел
 
 Веб-приложение для управления списком задач с системой аутентификации пользователей.
